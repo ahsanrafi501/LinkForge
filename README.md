@@ -85,6 +85,12 @@ RUN_INTEGRATION=1 TEST_BASE_URL=http://localhost:3001 node --test tests/integrat
 
 See [the testing guide](docs/testing.md) for browser checks.
 
+## Vercel deployment
+
+Deploy from the repository root. `vercel.json` builds the React frontend into `web/dist` and routes API requests and short-link redirects to the Express app through `api/index.js`. No environment variables are required; optionally configure `BASE_URL` with your public HTTPS origin.
+
+The in-memory store is temporary and is not shared between function instances. Links and click counts can disappear on cold starts, scaling, or redeployments. Use persistent storage before relying on deployed short links.
+
 ## Current limitations
 
 Links are stored in memory and disappear when the server restarts. All visitors share one link collection; there are no user accounts or access controls. This is a local/demo application. Add persistent storage, authorization, abuse controls, and deployment configuration before operating a public service. No license has been selected.
