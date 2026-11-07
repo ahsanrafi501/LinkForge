@@ -1,40 +1,90 @@
 # LinkForge
 
-LinkForge is a web application built with **React.js** for the frontend and **Express.js** for the backend.
+A URL shortener built with React and Express. Create a short link, choose an optional custom alias, copy it, track visits, and delete links from a responsive dashboard.
 
-## Project status
+## Run locally
 
-This repository currently contains this README. Application source code, dependencies, and run scripts have not been added yet.
+Use Node.js 22.12 or newer and npm. From the repository root:
 
-## Technology stack
+```sh
+npm install
+npm run dev
+```
 
-- **Frontend:** React.js
-- **Backend:** Express.js running on Node.js
-- **Package manager:** To be confirmed when the application is added
+Open the Vite URL printed in the terminal (normally `http://localhost:5173`). The API runs on `http://localhost:3001`; Vite proxies frontend API requests to it.
 
-## Getting started
+## Commands
 
-1. Install Node.js and the package manager used by the project.
-2. Obtain the application source code.
-3. Install the frontend and backend dependencies from their respective package directories.
-4. Configure any required environment variables.
-5. Start the frontend and backend using the scripts defined in their `package.json` files.
+| Command | Purpose |
+| --- | --- |
+| `npm run dev` | Run the frontend and backend together |
+| `npm test` | Run API tests and skipped-by-default live integration tests |
+| `npm run build` | Build the React frontend into `web/dist/` |
+| `npm start` | Start Express and serve the built frontend when available |
 
-Exact installation commands, development ports, and environment variables will be documented once the application configuration is available.
+For a single-server run, execute `npm run build` followed by `npm start`, then open `http://localhost:3001`.
 
-## Development
+## Configuration
 
-The React frontend provides the user interface, while the Express backend handles server-side requests and API endpoints.
+The backend reads environment variables from its process:
 
-When adding the application, document:
+- `PORT`: listening port, default `3001`.
+- `BASE_URL`: optional public origin used in generated short URLs, such as `https://links.example.com`. Without it, URLs use the incoming request origin.
 
-- The frontend and backend directory structure
-- Installation and development commands
-- Required environment variables in an `.env.example` file, without secrets
-- Available API endpoints
-- Test and production build commands
-- Deployment instructions
+For example:
 
-## License
+```sh
+PORT=3001 BASE_URL=http://localhost:3001 npm start
+```
 
-A license has not been specified.
+Do not commit local environment files or credentials. Changing the backend port also requires updating the Vite development proxy.
+
+## Project structure
+
+```text
+server/src/          Express app, startup, and in-memory link store
+server/test/         Isolated HTTP API tests
+web/src/            React UI and styles
+web/public/         Static assets, if added
+tests/integration/  Opt-in tests against a running server
+docs/               API and validation notes
+```
+
+The frontend uses relative API requests. Express owns link validation, alias uniqueness, redirects, and visit counts. API responses use `{ "data": ... }` for success and `{ "error": "message" }` for errors; successful deletion has no body.
+
+## API
+
+| Method | Path | Behavior |
+| --- | --- | --- |
+| `GET` | `/api/health` | Report API health |
+| `GET` | `/api/links` | List links and visit counts |
+| `POST` | `/api/links` | Create a short link |
+| `DELETE` | `/api/links/:code` | Delete a link; return `204` with no body, or `404` with `{ "error": "Link not found." }` |
+| `GET` | `/:code` | Redirect to the destination and count a visit |
+
+```sh
+curl -X POST http://localhost:3001/api/links \
+  -H 'Content-Type: application/json' \
+  -d '{"url":"https://example.com/articles","customAlias":"articles"}'
+curl http://localhost:3001/api/links
+curl -I http://localhost:3001/articles
+curl -X DELETE http://localhost:3001/api/links/articles
+```
+
+Destinations must be absolute HTTP or HTTPS URLs of up to 2,048 characters, without embedded credentials. Optional aliases must contain 3–32 letters, numbers, hyphens, or underscores. `api`, `health`, and `assets` are reserved. Alias collisions return `409`; validation failures return `400`; missing links return `404`. JSON bodies larger than 16 KB return `413`. A `HEAD` request checks a redirect without increasing its visit count.
+
+## Validation
+
+`npm test` uses Node's built-in test runner. Route tests create isolated stores and ephemeral HTTP servers, covering creation, validation, duplicate aliases, redirects, visit counts, deletion, JSON errors, and store isolation.
+
+To test a running instance:
+
+```sh
+RUN_INTEGRATION=1 TEST_BASE_URL=http://localhost:3001 node --test tests/integration
+```
+
+See [the testing guide](docs/testing.md) for browser checks.
+
+## Current limitations
+
+Links are stored in memory and disappear when the server restarts. All visitors share one link collection; there are no user accounts or access controls. This is a local/demo application. Add persistent storage, authorization, abuse controls, and deployment configuration before operating a public service. No license has been selected.
